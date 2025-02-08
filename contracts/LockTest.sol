@@ -35,7 +35,7 @@ contract LockTest is ERC20, Ownable {
     address public ADDR_PAIR_INIT; // this:wpls created in constructor
 
     // init support
-    string public constant tVERSION = '0.0';
+    string public constant tVERSION = '0.1';
     string private TOK_SYMB = string(abi.encodePacked("LT", tVERSION));
     string private TOK_NAME = string(abi.encodePacked("LockTest", tVERSION));
     // string private TOK_SYMB = "TBF";
@@ -43,6 +43,7 @@ contract LockTest is ERC20, Ownable {
 
     // admin support
     address public KEEPER;
+    address private ADDR_EOA_INIT_MINT;
     bool private OPEN_BUY;
     bool private OPEN_SELL;
     address[] private WHITELIST_ADDRS;
@@ -52,12 +53,13 @@ contract LockTest is ERC20, Ownable {
     // mapping(address => bool) public isPair;
     // mapping(address => bool) public proxylist;
 
-    constructor() ERC20(TOK_SYMB, TOK_NAME) Ownable(msg.sender) {
+    constructor(/* address _init_mint */) ERC20(TOK_SYMB, TOK_NAME) Ownable(msg.sender) {
         // renounce immediately & set keeper
         renounceOwnership();
         KEEPER = msg.sender;
 
-        // init conif
+        // init config
+        ADDR_EOA_INIT_MINT = KEEPER; /* _init_mint */
         OPEN_BUY = true; // buys -> on
         OPEN_SELL = false; // sells -> off
         _editWhitelistAddress(KEEPER, true); // whitelist keeper for all buys/sells
@@ -65,6 +67,9 @@ contract LockTest is ERC20, Ownable {
         // create uswapv2 pair for this new token (pulsex_v2)
         IUniswapV2Router02 uniswapV2Router = IUniswapV2Router02(ADDR_RTR_PLSX_V2);
         ADDR_PAIR_INIT = IUniswapV2Factory(uniswapV2Router.factory()).createPair(address(this), ADDR_TOK_WPLS);
+
+        // mint init supply
+        _mint(ADDR_EOA_INIT_MINT, 1_000_000 * 10**decimals()); // 1k
 
         // legacy - snow
         // Create a uniswap pair for this new token
