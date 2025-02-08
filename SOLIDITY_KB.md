@@ -27,7 +27,7 @@
 
 ## KB ##
 ### VS code solidity compilation fail (clear cache)
-    OSx:     $ `rm -rf ~/Library/Application\ Support/Code/User/globalStorage/juanblanco.solidity`
+    OSx:     $ rm -rf ~/Library/Application\ Support/Code/User/globalStorage/juanblanco.solidity
     Linux:   $ rm -rf ~/.config/Code/User/globalStorage/juanblanco.solidity
     Windows: $ Remove-Item -Recurse -Force "$env:APPDATA\Code\User\globalStorage\juanblanco.solidity"
 
