@@ -42,7 +42,16 @@
         swapx v2 ref: https://swapxfi.gitbook.io/swapx-docs/tokenomics/contracts
 
     # ------------------------------------------------------------------------------ #
-    # 013125: PULSECHAIN mainnet deploys
+    # 020725: PULSECHAIN mainnet deploys
+    # ------------------------------------------------------------------------------ #
+    wPLS: 0xA1077a294dDE1B09bB078844df40758a5D0f9a27
+    LT0.1:wPLS (1k:1k): 0xd6B974Cd73496d7AdD060AE1EC8C56eFEFbEda4B
+
+    LockTest_v0.1: 0xB9eEc214BCB85759Ed42dEea09CAde062B9Ea07b
+    Testing^^^ ... 0xEEd80539c314db19360188A66CccAf9caC887b22 // testing all   
+
+    # ------------------------------------------------------------------------------ #
+    # 020725: PULSECHAIN mainnet deploys
     # ------------------------------------------------------------------------------ #
     wPLS: 0xA1077a294dDE1B09bB078844df40758a5D0f9a27
     LT:wPLS (0:0): 0x503c3EF15AA0555A633F24431940CBD63eD82540
