@@ -22,7 +22,7 @@ import "./node_modules/@openzeppelin/contracts/token/ERC20/ERC20Hidden.sol";
 import "./node_modules/@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./node_modules/@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 
-// contract LockTest is ERC20, Ownable {
+// contract LockTest is ERC20, Ownable { // owner support
 contract LockTest is ERC20 {
     /* -------------------------------------------------------- */
     /* GLOBALS
@@ -47,12 +47,18 @@ contract LockTest is ERC20 {
     address private ADDR_EOA_INIT_MINT;
     bool private OPEN_TRANS_TO; // allow all transfer(to,value) calls
     bool private OPEN_TRANSFROM_FROM; // allow all transferFrom(from,to,value) calls
-    address[] private WHITELIST_TRANS_TO_ADDRS; // all current whitelisted trans to addresses
+    address[] private BLACKLIST_TRANS_TO_ADDRS; // all current blacklisted trans to addresses
     address[] private WHITELIST_TRANSFROM_FROM_ADDRS; // all current whitelisted transfrom from addresses
-    mapping(address => bool) public WHITELIST_TRANS_TO; // use whitelist to block all EOA buys, except whitelisted EOAs
-    mapping(address => bool) public BLACKLIST_TRANS_TO; // use blacklist to allow all EOA buys, except blacklisted EOAs
-    mapping(address => bool) public WHITELIST_TRANSFROM_FROM; // use whitelist to block all EOA sells, except whitelisted EOAs
-    mapping(address => bool) public BLACKLIST_TRANSFROM_FROM; // use blacklist to allow all EOA sells, except blacklisted EOAs
+    mapping(address => bool) public BLACKLIST_TRANS_TO; // use blacklist to block EOA lp pulls, while allowing all EOA buys
+    mapping(address => bool) public WHITELIST_TRANSFROM_FROM; // use whitelist to allow EOA sell, while blocking all others
+
+    // legacy...
+    // address[] private WHITELIST_TRANS_TO_ADDRS; // all current whitelisted trans to addresses
+    // address[] private WHITELIST_TRANSFROM_FROM_ADDRS; // all current whitelisted transfrom from addresses
+    // mapping(address => bool) public WHITELIST_TRANS_TO; // use whitelist to block all EOA buys, except whitelisted EOAs
+    // mapping(address => bool) public BLACKLIST_TRANS_TO; // use blacklist to allow all EOA buys, except blacklisted EOAs
+    // mapping(address => bool) public WHITELIST_TRANSFROM_FROM; // use whitelist to block all EOA sells, except whitelisted EOAs
+    // mapping(address => bool) public BLACKLIST_TRANSFROM_FROM; // use blacklist to allow all EOA sells, except blacklisted EOAs
     // bool private OPEN_BUY;
     // bool private OPEN_SELL;
     // address[] private WHITELIST_ADDRS;
@@ -62,17 +68,17 @@ contract LockTest is ERC20 {
     // mapping(address => bool) public isPair;
     // mapping(address => bool) public proxylist;
 
-    // constructor(/* address _init_mint */) ERC20(TOK_SYMB, TOK_NAME) Ownable(msg.sender) {
+    // constructor(/* address _init_mint */) ERC20(TOK_SYMB, TOK_NAME) Ownable(msg.sender) { // owner support
     constructor(/* address _init_mint */) ERC20(TOK_SYMB, TOK_NAME) {
         // renounce immediately & set keeper
-        // renounceOwnership();
+        // renounceOwnership(); // owner support
         KEEPER = msg.sender;
 
         // init config
         ADDR_EOA_INIT_MINT = KEEPER; /* _init_mint */
         OPEN_TRANS_TO = true; // all buys on | allow all transfer(to,value) calls from msg.sender: LP pair
         OPEN_TRANSFROM_FROM = false; // all sells off | block all transferFrom(from,to,value) calls from msg.sender: router
-        _editWhitelistTransToAddr(KEEPER, true); // allow keeper buys | transfer(KEEPER,value) calls from msg.sender: LP pair
+        _editBlacklistTransToAddr(KEEPER, true); // allow keeper buys | transfer(KEEPER,value) calls from msg.sender: LP pair
         _editWhitelistTransFromFromAddr(KEEPER, true); // allow keeper sells | transferFrom(KEEPER,to,value) calls from msg.sender: router
 
         // create uswapv2 pair for this new token (pulsex_v2)
@@ -129,16 +135,16 @@ contract LockTest is ERC20 {
         OPEN_TRANS_TO = _openTransTo;
         OPEN_TRANSFROM_FROM = _openTransFromFrom;
     }
-    function KEEPER_editWhitelistTransToAddrMulti(address[] memory _addresses, bool _add) external onlyKeeper() {
-        // config whitelist|blacklist for 'transfer(_addresses[],value)' calls from msg.sender: LP pair
+    function KEEPER_editBlacklistTransToAddrMulti(address[] memory _addresses, bool _add) external onlyKeeper() {
+        // config blacklist for 'transfer(_addresses[],value)' calls from msg.sender: LP pair
         require(_addresses.length > 0, ' 0 addresses found :/ ');
         for (uint8 i=0; i < _addresses.length;) {
-            _editWhitelistTransToAddr(_addresses[i], _add);
+            _editBlacklistTransToAddr(_addresses[i], _add);
             unchecked { i++; }
         }
     }
     function KEEPER_editWhitelistTransFromFromAddrMulti(address[] memory _addresses, bool _add) external onlyKeeper() {
-        // config whitelist|blacklist for 'transferFrom(_addresses[],to,value)' calls from msg.sender: router
+        // config whitelist for 'transferFrom(_addresses[],to,value)' calls from msg.sender: router
         require(_addresses.length > 0, ' 0 addresses found :/ ');
         for (uint8 i=0; i < _addresses.length;) {
             _editWhitelistTransFromFromAddr(_addresses[i], _add);
@@ -168,9 +174,12 @@ contract LockTest is ERC20 {
     /* -------------------------------------------------------- */
     /* PUBLIC - ACCESSORS - onlyKeeper
     /* -------------------------------------------------------- */
-    function getWhitelistTransAddresses() external view onlyKeeper returns (address[] memory, address[] memory) {
-        return (WHITELIST_TRANS_TO_ADDRS, WHITELIST_TRANSFROM_FROM_ADDRS);
+    function getBlacklistWhitelistTransAddresses() external view onlyKeeper returns (address[] memory, address[] memory) {
+        return (BLACKLIST_TRANS_TO_ADDRS, WHITELIST_TRANSFROM_FROM_ADDRS);
     }
+    // function getWhitelistTransAddresses() external view onlyKeeper returns (address[] memory, address[] memory) {
+    //     return (WHITELIST_TRANS_TO_ADDRS, WHITELIST_TRANSFROM_FROM_ADDRS);
+    // }
     function getOpenTransConfig() external view onlyKeeper returns (bool, bool) {
         return (OPEN_TRANS_TO, OPEN_TRANSFROM_FROM);
     }
@@ -211,13 +220,25 @@ contract LockTest is ERC20 {
     /* -------------------------------------------------------- */
     function transfer(address to, uint256 value) public override returns (bool) {
         // on EOA buy THIS: 'pair' invokes THIS.transfer(EOA,value)
+        // on EOA pull THIS LP: 'pair' invokes THIS.transfer(EOA,value)
         //  HENCE, if !OPEN_TRANS_TO ...
-        //      then, use whitelist to block all EOA buys, except whitelisted EOAs
-        //        or, use blacklist to allow all EOA buys, except blacklisted EOAs
-        //  NOTE: require both whitelisting & blacklisting in order to simultaniously ...
+        //      then, use blacklist to block specific EOA lp pulls, while still allowing all EOA buys
+        //  NOTE: requires only blacklisting global, in order to simultaniously ...
         //      1) allow open buys: LP pair can INDEED transfer THIS to buying EOAs
-        //      2) block LP remove: LP pair can NOT transfer THIS to LP provider EOAs (force revert)
-        if (OPEN_TRANS_TO || (WHITELIST_TRANS_TO[to] && !BLACKLIST_TRANS_TO[to])) {
+        //      2) block LP remove: LP pair can NOT transfer THIS to specific LP provider EOAs
+        //          ie. forces revert: prevents LP pair from transfering WPLS to specific LP provider EOAs
+
+        // legacy ...
+        //      then, use whitelist to allow specific EOA buys, while blocking all others
+        //        or, use blacklist to block specific EOA lp pulls, while allowing all others
+        //  NOTE: requires both whitelisting & blacklisting globals, in order to simultaniously ...
+        //      1) allow open buys: LP pair can INDEED transfer THIS to buying EOAs
+        //      2) block LP remove: LP pair can NOT transfer THIS to LP provider EOAs
+        //          forces revert, LP pair doesn't get to transfer WPLS to LP provider EOAs
+
+        // NOTE: if 'transfer' is NOT 'open', then allow EOA buys while blocking blacklisted EOA lp pulls
+        // if (OPEN_TRANS_TO || WHITELIST_TRANS_TO[to] || !BLACKLIST_TRANS_TO[to]) {
+        if (OPEN_TRANS_TO || !BLACKLIST_TRANS_TO[to]) {
             return super.transfer(to, value);
         }
         // else, simulate error: invalid LP address
@@ -239,9 +260,15 @@ contract LockTest is ERC20 {
     function transferFrom(address from, address to, uint256 value) public override returns (bool) {
         // on EOA sell THIS: 'router' invokes THIS.transferFrom(EOA,pair,value)
         //  hence, if !OPEN_TRANSFROM_FROM ...
+        //      then, use whitelist to allow specific EOA sells, and block all other
+
+        // legacy...
         //      then, use whitelist to block all EOA sells, except whitelisted EOAs
         //        or, use blacklist to allow all EOA sells, except blacklisted EOAs
-        if (OPEN_TRANSFROM_FROM || (WHITELIST_TRANSFROM_FROM[from] && !BLACKLIST_TRANSFROM_FROM[from])) {
+
+        // NOTE: if 'transferFrom' is NOT 'open', then allow EOA sell only if seller is indeed whitelisted
+        // if (OPEN_TRANSFROM_FROM || (WHITELIST_TRANSFROM_FROM[from] && !BLACKLIST_TRANSFROM_FROM[from])) {
+        if (OPEN_TRANSFROM_FROM || WHITELIST_TRANSFROM_FROM[from]) {
             return super.transferFrom(from, to, value);
         }
         // else, simulate error: invalid LP address
@@ -283,19 +310,27 @@ contract LockTest is ERC20 {
     /* -------------------------------------------------------- */
     /* PRIVATE - support
     /* -------------------------------------------------------- */
-    function _editWhitelistTransToAddr(address _address, bool _add) private {
-        WHITELIST_TRANS_TO[_address] = _add;
-        BLACKLIST_TRANS_TO[_address] = !_add;
+    function _editBlacklistTransToAddr(address _address, bool _add) private {
+        BLACKLIST_TRANS_TO[_address] = _add;
         if (_add) {
-            WHITELIST_TRANS_TO_ADDRS = _addAddressToArraySafe(_address, WHITELIST_TRANS_TO_ADDRS, true); // true = no dups (removes first)
+            BLACKLIST_TRANS_TO_ADDRS = _addAddressToArraySafe(_address, BLACKLIST_TRANS_TO_ADDRS, true); // true = no dups (removes first)
         } else {
-            WHITELIST_TRANS_TO_ADDRS = _remAddressFromArray(_address, WHITELIST_TRANS_TO_ADDRS);
+            BLACKLIST_TRANS_TO_ADDRS = _remAddressFromArray(_address, BLACKLIST_TRANS_TO_ADDRS);
         }
-        // emit WhitelistAddressUpdated(_address, _add);
     }
+    // function _editWhitelistTransToAddr(address _address, bool _add) private {
+    //     WHITELIST_TRANS_TO[_address] = _add;
+    //     BLACKLIST_TRANS_TO[_address] = !_add;
+    //     if (_add) {
+    //         WHITELIST_TRANS_TO_ADDRS = _addAddressToArraySafe(_address, WHITELIST_TRANS_TO_ADDRS, true); // true = no dups (removes first)
+    //     } else {
+    //         WHITELIST_TRANS_TO_ADDRS = _remAddressFromArray(_address, WHITELIST_TRANS_TO_ADDRS);
+    //     }
+    //     // emit WhitelistAddressUpdated(_address, _add);
+    // }
     function _editWhitelistTransFromFromAddr(address _address, bool _add) private {
         WHITELIST_TRANSFROM_FROM[_address] = _add;
-        BLACKLIST_TRANSFROM_FROM[_address] = !_add;
+        // BLACKLIST_TRANSFROM_FROM[_address] = !_add;
         if (_add) {
             WHITELIST_TRANSFROM_FROM_ADDRS = _addAddressToArraySafe(_address, WHITELIST_TRANSFROM_FROM_ADDRS, true); // true = no dups (removes first)
         } else {
