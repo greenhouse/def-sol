@@ -24,6 +24,7 @@ import _abi # only used as single edge case in 'go_enter_func_params'
 SELECT_DEPLOY_ALL = False
 LST_CONTR_ABI_BIN = [
     "../bin/contracts/LockTest",
+    "../bin/contracts/PumpTiresTest", 
 ]
 
 W3_ = None
